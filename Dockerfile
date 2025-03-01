@@ -7,7 +7,7 @@ WORKDIR /app
 
 # Copy the current directory contents into the container at /app
 COPY calculator.py .
-COPY Test.py .
+COPY test.py .
 
 # Command to run your application
 CMD ["python", "calculator.py"]
