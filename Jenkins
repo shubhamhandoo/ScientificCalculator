@@ -1,0 +1,94 @@
+pipeline {
+    agent any
+
+    environment {
+        RECIPIENTS = 'handooshubham@gmail.com'  // Define recipient email(s)
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scmGit(branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/shubhamhandoo/ScientificCalculator']])
+            }
+        }
+
+        stage('Test') {
+            steps {
+                echo 'Testing phase'
+            }
+        }
+
+        stage('Build Image') {
+            steps {
+                sh 'docker build -t spe-calc-mini-project:latest .'
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: "dockerhub", passwordVariable: "dockerpass", usernameVariable: "dockerhubuser")]) {
+                        sh "docker login -u ${env.dockerhubuser} -p ${env.dockerpass}"
+                        echo 'Login successful'
+                        sh "docker tag spe-calc-mini-project ${env.dockerhubuser}/spe-calc-mini-project:latest"
+                        sh "docker push ${env.dockerhubuser}/spe-calc-mini-project:latest"
+                    }
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                echo 'Deploying phase'
+            }
+        }
+    }
+
+    post {
+        success {
+            emailext(
+                subject: "✅ Jenkins Build SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """
+                <p>✅ Build Successful!</p>
+                <p><b>Job Name:</b> ${env.JOB_NAME}</p>
+                <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
+                <p><b>Duration:</b> ${currentBuild.durationString}</p>
+                <p><b>Check Build Details:</b> <a href='${env.BUILD_URL}'>Jenkins Console</a></p>
+                """,
+                recipientProviders: [[$class: 'DevelopersRecipientProvider']],
+                to: "${env.RECIPIENTS}",
+                mimeType: 'text/html'
+            )
+        }
+
+        failure {
+            emailext(
+                subject: "❌ Jenkins Build FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """
+                <p>❌ Build Failed!</p>
+                <p><b>Job Name:</b> ${env.JOB_NAME}</p>
+                <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
+                <p><b>Check Logs:</b> <a href='${env.BUILD_URL}'>Jenkins Console</a></p>
+                """,
+                recipientProviders: [[$class: 'DevelopersRecipientProvider']],
+                to: "${env.RECIPIENTS}",
+                mimeType: 'text/html'
+            )
+        }
+
+        unstable {
+            emailext(
+                subject: "⚠️ Jenkins Build UNSTABLE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """
+                <p>⚠️ Build Unstable!</p>
+                <p><b>Job Name:</b> ${env.JOB_NAME}</p>
+                <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
+                <p><b>Check Logs:</b> <a href='${env.BUILD_URL}'>Jenkins Console</a></p>
+                """,
+                recipientProviders: [[$class: 'DevelopersRecipientProvider']],
+                to: "${env.RECIPIENTS}",
+                mimeType: 'text/html'
+            )
+        }
+    }
+}
